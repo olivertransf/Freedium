@@ -12,10 +12,35 @@ import AuthenticationServices
 struct ContentView: View {
     @State private var isAuthenticating = false
     @State private var freediumURL: URL? = nil
+    @AppStorage("freedium_preferDarkMode") private var preferDarkMode: Bool = false
+    @State private var isShowingSettings = false
+    @State private var reloadToken: Int = 0
 
     var body: some View {
-        WebView(url: URL(string: "https://medium.com")!) { url in
-            freediumURL = url
+        ZStack(alignment: .bottomTrailing) {
+            WebView(url: URL(string: "https://medium.com")!, onArticleLink: { url in
+                freediumURL = url
+            }, preferDarkMode: preferDarkMode)
+            .id(reloadToken)
+
+            // Floating settings button
+            Button {
+                isShowingSettings = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 18, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .padding(14)
+                    .background(.ultraThinMaterial, in: Circle())
+                    .overlay(
+                        Circle().strokeBorder(Color.white.opacity(0.2), lineWidth: 1)
+                    )
+                    .shadow(color: Color.black.opacity(0.25), radius: 10, x: 0, y: 6)
+            }
+            .buttonStyle(.plain)
+            .padding(.trailing, 16)
+            .padding(.bottom, 22)
+            .accessibilityLabel("Settings")
         }
             .toolbar {
                 ToolbarItem(placement: .automatic) {
@@ -24,6 +49,14 @@ struct ContentView: View {
                     }
                     .disabled(isAuthenticating)
                 }
+            }
+            .sheet(isPresented: $isShowingSettings) {
+                SettingsSheet(preferDarkMode: $preferDarkMode, onReload: {
+                    // Force recreate the WebView and navigate home
+                    reloadToken &+= 1
+                })
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
             }
             #if os(iOS)
             .fullScreenCover(isPresented: Binding(
@@ -81,6 +114,38 @@ struct PresentedArticleView: View {
     }
 }
 #endif
+
+// MARK: - Settings
+struct SettingsSheet: View {
+    @Binding var preferDarkMode: Bool
+    var onReload: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(header: Text("Appearance")) {
+                    Toggle(isOn: $preferDarkMode) {
+                        Text("Dark Mode for Medium Home")
+                    }
+                    Text("Experimental: If dark mode doesn’t apply immediately, try ‘Reload Home’.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                    Button {
+                        onReload()
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.clockwise")
+                            Text("Reload Home")
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Settings")
+            .navigationBarTitleDisplayMode(.inline)
+        }
+    }
+}
 
 // No Identifiable conformance needed; using isPresented sheet
 
