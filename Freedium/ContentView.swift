@@ -25,12 +25,23 @@ struct ContentView: View {
                     .disabled(isAuthenticating)
                 }
             }
+            #if os(iOS)
+            .fullScreenCover(isPresented: Binding(
+                get: { freediumURL != nil },
+                set: { if !$0 { freediumURL = nil } }
+            )) {
+                if let link = freediumURL {
+                    PresentedArticleView(url: link) { freediumURL = nil }
+                }
+            }
+            #else
             .sheet(isPresented: Binding(
                 get: { freediumURL != nil },
                 set: { if !$0 { freediumURL = nil } }
             ), onDismiss: { freediumURL = nil }) {
                 if let link = freediumURL { WebView(url: link) }
             }
+            #endif
     }
 
     private func startMediumSignIn() {
@@ -49,6 +60,27 @@ struct ContentView: View {
         #endif
     }
 }
+
+// MARK: - Full-screen presented article view (iOS)
+#if os(iOS)
+struct PresentedArticleView: View {
+    let url: URL
+    let onClose: () -> Void
+
+    var body: some View {
+        NavigationStack {
+            WebView(url: url)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("Done") { onClose() }
+                            .fontWeight(.semibold)
+                    }
+                }
+        }
+    }
+}
+#endif
 
 // No Identifiable conformance needed; using isPresented sheet
 
